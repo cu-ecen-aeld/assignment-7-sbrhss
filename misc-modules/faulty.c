@@ -17,22 +17,16 @@
 
 #include <linux/module.h>
 #include <linux/init.h>
+
 #include <linux/kernel.h> /* printk() */
 #include <linux/fs.h>     /* everything... */
 #include <linux/types.h>  /* size_t */
 #include <linux/uaccess.h>
-#include <linux/device.h> /* for class_create, device_create */
-#include <linux/cdev.h>   /* for cdev */
 
 MODULE_LICENSE("Dual BSD/GPL");
-MODULE_AUTHOR("SBRHSS");
-MODULE_DESCRIPTION("AESD Faulty Module - Assignment 7");
-MODULE_VERSION("1.0");
 
-static int faulty_major = 0;
-static struct class *faulty_class = NULL;
-static struct device *faulty_device = NULL;
-static dev_t dev_num;
+
+int faulty_major = 0;
 
 ssize_t faulty_read(struct file *filp, char __user *buf,
 		    size_t count, loff_t *pos)
@@ -40,8 +34,7 @@ ssize_t faulty_read(struct file *filp, char __user *buf,
 	int i;
 	int ret;
 	char stack_buf[4];
-	
-	printk(KERN_ALERT "faulty_read module called .... \n");
+
 	/* Let's try a buffer overflow  */
 	for (i = 0; i < 20; i++)
 		*(stack_buf + i) = 0xff;
@@ -56,11 +49,12 @@ ssize_t faulty_read(struct file *filp, char __user *buf,
 ssize_t faulty_write (struct file *filp, const char __user *buf, size_t count,
 		loff_t *pos)
 {
-	printk(KERN_ALERT "faulty_write module called .... \n");
 	/* make a simple fault by dereferencing a NULL pointer */
 	*(int *)0 = 0;
 	return 0;
 }
+
+
 
 struct file_operations faulty_fops = {
 	.read =  faulty_read,
@@ -68,72 +62,26 @@ struct file_operations faulty_fops = {
 	.owner = THIS_MODULE
 };
 
-static int __init faulty_init(void)
+
+int faulty_init(void)
 {
 	int result;
-	dev_t dev = 0;
 
-	printk(KERN_ALERT "faulty_init module initialized .... \n");
-	
-	/* Allocate a major number dynamically */
-	result = alloc_chrdev_region(&dev, 0, 1, "aesd-faulty");
-	if (result < 0) {
-		printk(KERN_ERR "faulty: Failed to allocate chrdev region\n");
+	/*
+	 * Register your major, and accept a dynamic number
+	 */
+	result = register_chrdev(faulty_major, "faulty", &faulty_fops);
+	if (result < 0)
 		return result;
-	}
-	
-	faulty_major = MAJOR(dev);
-	dev_num = dev;
-	
-	/* Create device class */
-	faulty_class = class_create(THIS_MODULE, "aesd-faulty");
-	if (IS_ERR(faulty_class)) {
-		printk(KERN_ERR "faulty: Failed to create device class\n");
-		unregister_chrdev_region(dev, 1);
-		return PTR_ERR(faulty_class);
-	}
-	
-	/* Create device file - this creates /dev/faulty */
-	faulty_device = device_create(faulty_class, NULL, dev_num, NULL, "faulty");
-	if (IS_ERR(faulty_device)) {
-		printk(KERN_ERR "faulty: Failed to create device\n");
-		class_destroy(faulty_class);
-		unregister_chrdev_region(dev, 1);
-		return PTR_ERR(faulty_device);
-	}
-	
-	/* Register character device */
-	result = register_chrdev_region(dev, 1, "aesd-faulty");
-	if (result < 0) {
-		printk(KERN_ERR "faulty: Failed to register chrdev\n");
-		device_destroy(faulty_class, dev_num);
-		class_destroy(faulty_class);
-		unregister_chrdev_region(dev, 1);
-		return result;
-	}
-	
-	printk(KERN_INFO "faulty: Module loaded, device created at /dev/faulty (major %d)\n", faulty_major);
+	if (faulty_major == 0)
+		faulty_major = result; /* dynamic */
+
 	return 0;
 }
 
-static void __exit faulty_cleanup(void)
+void faulty_cleanup(void)
 {
-	printk(KERN_ALERT "faulty_cleanup module called .... \n");
-	
-	/* Destroy device file */
-	if (faulty_device) {
-		device_destroy(faulty_class, dev_num);
-	}
-	
-	/* Destroy device class */
-	if (faulty_class) {
-		class_destroy(faulty_class);
-	}
-	
-	/* Unregister character device */
-	if (faulty_major > 0) {
-		unregister_chrdev_region(dev_num, 1);
-	}
+	unregister_chrdev(faulty_major, "faulty");
 }
 
 module_init(faulty_init);
