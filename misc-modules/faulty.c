@@ -24,7 +24,10 @@
 #include <linux/uaccess.h>
 
 MODULE_LICENSE("Dual BSD/GPL");
-
+MODULE_AUTHOR("SBRHSS");
+MODULE_DESCRIPTION("AESD Faulty Module - Assignment 7");
+MODULE_VERSION("1.0");
+// Make sure the module name doesn't conflict
 
 int faulty_major = 0;
 
@@ -34,7 +37,8 @@ ssize_t faulty_read(struct file *filp, char __user *buf,
 	int i;
 	int ret;
 	char stack_buf[4];
-
+	
+	printk(KERN_ALERT "faulty_write module called .... \n");
 	/* Let's try a buffer overflow  */
 	for (i = 0; i < 20; i++)
 		*(stack_buf + i) = 0xff;
@@ -49,6 +53,7 @@ ssize_t faulty_read(struct file *filp, char __user *buf,
 ssize_t faulty_write (struct file *filp, const char __user *buf, size_t count,
 		loff_t *pos)
 {
+	printk(KERN_ALERT "faulty_write module called .... \n");
 	/* make a simple fault by dereferencing a NULL pointer */
 	*(int *)0 = 0;
 	return 0;
@@ -70,6 +75,7 @@ int faulty_init(void)
 	/*
 	 * Register your major, and accept a dynamic number
 	 */
+	printk(KERN_ALERT "faulty_init module initialized .... \n");
 	result = register_chrdev(faulty_major, "faulty", &faulty_fops);
 	if (result < 0)
 		return result;
@@ -81,6 +87,7 @@ int faulty_init(void)
 
 void faulty_cleanup(void)
 {
+	printk(KERN_ALERT "faulty_cleanup module called .... \n");
 	unregister_chrdev(faulty_major, "faulty");
 }
 
