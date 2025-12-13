@@ -30,7 +30,11 @@ clean:
 else
     # called from kernel build system: just declare what our modules are
     obj-m := hello.o hellop.o seq.o jiq.o sleepy.o complete.o \
-             silly.o faulty.o kdatasize.o kdataalign.o jit.o
+             silly.o kdatasize.o kdataalign.o jit.o
+
+    # Build aesd-faulty.ko from faulty.c source
+    aesd-faulty-objs := faulty.o
+    obj-m += aesd-faulty.o
 endif
 
 
